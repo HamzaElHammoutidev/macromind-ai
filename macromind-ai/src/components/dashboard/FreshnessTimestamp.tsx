@@ -9,9 +9,8 @@ interface FreshnessTimestampProps {
 }
 
 export function FreshnessTimestamp({ timestamp }: FreshnessTimestampProps) {
-  const [relativeTime, setRelativeTime] = useState(
-    formatRelativeTime(timestamp)
-  );
+  // Initialize with empty string to avoid hydration mismatch
+  const [relativeTime, setRelativeTime] = useState("");
 
   useEffect(() => {
     setRelativeTime(formatRelativeTime(timestamp));
@@ -24,7 +23,7 @@ export function FreshnessTimestamp({ timestamp }: FreshnessTimestampProps) {
   return (
     <div className="flex items-center gap-1 text-xs text-muted-foreground">
       <Clock className="h-3 w-3" />
-      <span>Last update: {relativeTime}</span>
+      <span>Last update: {relativeTime || "Loading..."}</span>
     </div>
   );
 }

@@ -7,9 +7,8 @@ export function useRelativeTime(
   timestamp: string | null,
   intervalMs = 30000
 ) {
-  const [relative, setRelative] = useState(
-    timestamp ? formatRelativeTime(timestamp) : "Never"
-  );
+  // Initialize with empty string to avoid hydration mismatch
+  const [relative, setRelative] = useState<string>("");
 
   useEffect(() => {
     if (!timestamp) {
@@ -25,5 +24,5 @@ export function useRelativeTime(
     return () => clearInterval(interval);
   }, [timestamp, intervalMs]);
 
-  return relative;
+  return relative || "Never";
 }

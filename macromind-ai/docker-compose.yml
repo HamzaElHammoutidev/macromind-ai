@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: macromind-ai
+    restart: unless-stopped
+    ports:
+      - "8070:8070"
+    environment:
+      - NODE_ENV=production
+      - PORT=8070
+    env_file:
+      - .env.local
+    networks:
+      - macromind-network
+
+networks:
+  macromind-network:
+    driver: bridge

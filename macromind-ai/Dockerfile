@@ -29,8 +29,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    apk add --no-cache su-exec
 
 # Copy standalone output (required)
 COPY --from=builder /app/.next/standalone ./
@@ -41,14 +42,17 @@ COPY --from=builder /app/public ./public
 # Copy static files (may be empty)
 COPY --from=builder /app/.next/static/. ./.next/static/
 
-# Create data directory with proper permissions
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER nextjs
+# Create data directory
+RUN mkdir -p /app/data
 
 EXPOSE 8070
 
 ENV PORT=8070
 ENV HOSTNAME="0.0.0.0"
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -254,54 +254,79 @@ export async function analyzeMarket(
 
   console.log(`[LLM] Using provider: ${provider}, model: ${model}`);
 
-  const completion = await client.chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.3,
-    max_tokens: 4000,
+  // Check if API key is configured
+  const apiKey = provider === "zhipu" ? process.env.ZHIPU_API_KEY : process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error(`[LLM] ERROR: ${provider.toUpperCase()}_API_KEY not configured!`);
+    throw new Error(`${provider.toUpperCase()}_API_KEY environment variable is missing`);
+  }
+
+  // Add timeout to prevent hanging
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("LLM request timed out after 60 seconds")), 60000);
   });
 
-  const content = completion.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("LLM returned empty response");
-  }
+  try {
+    const completionPromise = client.chat.completions.create({
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
+    });
 
-  // Strip any markdown code fences if the LLM wraps JSON
-  const cleaned = content
-    .replace(/^```json?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
+    const completion = await Promise.race([completionPromise, timeoutPromise]) as any;
 
-  const parsed = JSON.parse(cleaned) as LLMResponse;
+    console.log("[LLM] Got response from API");
 
-  // Validate structure
-  if (
-    !parsed.assets ||
-    !Array.isArray(parsed.assets) ||
-    parsed.assets.length === 0
-  ) {
-    throw new Error("LLM response missing assets array");
-  }
-
-  for (const asset of parsed.assets) {
-    if (!["Bullish", "Bearish", "Neutral"].includes(asset.sentiment)) {
-      throw new Error(
-        `Invalid sentiment "${asset.sentiment}" for ${asset.ticker}`
-      );
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("LLM returned empty response");
     }
+
+    // Strip any markdown code fences if the LLM wraps JSON
+    const cleaned = content
+      .replace(/^```json?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    const parsed = JSON.parse(cleaned) as LLMResponse;
+
+    // Validate structure
     if (
-      typeof asset.confidence !== "number" ||
-      asset.confidence < 0 ||
-      asset.confidence > 100
+      !parsed.assets ||
+      !Array.isArray(parsed.assets) ||
+      parsed.assets.length === 0
     ) {
-      throw new Error(
-        `Invalid confidence ${asset.confidence} for ${asset.ticker}`
-      );
+      throw new Error("LLM response missing assets array");
     }
-  }
 
-  return parsed;
+    for (const asset of parsed.assets) {
+      if (!["Bullish", "Bearish", "Neutral"].includes(asset.sentiment)) {
+        throw new Error(
+          `Invalid sentiment "${asset.sentiment}" for ${asset.ticker}`
+        );
+      }
+      if (
+        typeof asset.confidence !== "number" ||
+        asset.confidence < 0 ||
+        asset.confidence > 100
+      ) {
+        throw new Error(
+          `Invalid confidence ${asset.confidence} for ${asset.ticker}`
+        );
+      }
+    }
+
+    console.log(`[LLM] Successfully analyzed ${parsed.assets.length} assets`);
+    return parsed;
+  } catch (error) {
+    console.error("[LLM] Request failed:", error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.cause) {
+      console.error("[LLM] Underlying cause:", error.cause);
+    }
+    throw error;
+  }
 }

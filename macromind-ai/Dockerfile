@@ -19,6 +19,9 @@ ENV OPENAI_API_KEY=${OPENAI_API_KEY}
 
 RUN npm run build
 
+# Ensure directories exist for copy
+RUN mkdir -p /app/public /app/.next/static
+
 # Stage 3: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -29,9 +32,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+# Copy standalone output (required)
 COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+
+# Copy public folder (may be empty)
+COPY --from=builder /app/public ./public
+
+# Copy static files (may be empty)
+COPY --from=builder /app/.next/static/. ./.next/static/
 
 USER nextjs
 

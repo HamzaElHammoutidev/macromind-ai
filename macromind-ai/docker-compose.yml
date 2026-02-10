@@ -12,9 +12,15 @@ services:
       - PORT=8070
     env_file:
       - .env.local
+    volumes:
+      - macromind-data:/app/data
     networks:
       - macromind-network
 
 networks:
   macromind-network:
     driver: bridge
+
+volumes:
+  macromind-data:
+    driver: local

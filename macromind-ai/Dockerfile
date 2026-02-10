@@ -41,6 +41,9 @@ COPY --from=builder /app/public ./public
 # Copy static files (may be empty)
 COPY --from=builder /app/.next/static/. ./.next/static/
 
+# Create data directory with proper permissions
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+
 USER nextjs
 
 EXPOSE 8070
